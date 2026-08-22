@@ -5,6 +5,7 @@ import logging
 import time
 import types
 from datetime import datetime
+from typing import TypedDict
 from unittest.mock import patch
 
 import orjson
@@ -48,6 +49,23 @@ def test_initialization_with_string_signature():
     expected_instruction = "Given the fields `input1`, `input2`, produce the fields `output`."
     assert predict.signature.instructions == expected_instruction
     assert predict.signature.instructions == Signature(signature_string).instructions
+
+
+def test_predict_accepts_typeddict_input():
+    class EmailRecord(TypedDict):
+        subject: str
+        sender_email: str
+
+    class ShouldReply(dspy.Signature):
+        email: EmailRecord = dspy.InputField()
+        should_reply: bool = dspy.OutputField()
+
+    dspy.configure(lm=DummyLM([{"should_reply": "True"}]))
+    result = dspy.Predict(ShouldReply)(
+        email={"subject": "Re: Infra recs", "sender_email": "mike@example.com"}
+    )
+
+    assert result.should_reply is True
 
 
 def test_reset_method():

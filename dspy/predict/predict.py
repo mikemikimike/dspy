@@ -1,6 +1,7 @@
 import logging
 import random
 import types
+import typing
 from typing import Any, Literal, Union, get_args, get_origin
 
 from pydantic import BaseModel
@@ -373,6 +374,11 @@ def _check_type(value: Any, expected: type) -> bool:
         if args:
             return all(_check_type(item, args[0]) for item in value)
         return True
+
+    # TypedDict classes cannot be used with isinstance(), so handle them
+    # before the plain type fallthrough.
+    if typing.is_typeddict(expected):
+        return isinstance(value, dict)
 
     # Plain type (int, str, BaseModel subclass, etc.)
     if isinstance(expected, type):
