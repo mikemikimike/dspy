@@ -196,12 +196,14 @@ class Tool(Type):
     @with_callbacks
     async def acall(self, **kwargs):
         parsed_kwargs = self._validate_and_parse_args(**kwargs)
-        result = self.func(**parsed_kwargs)
+        if inspect.iscoroutinefunction(self.func):
+            result = self.func(**parsed_kwargs)
+        else:
+            # Keep synchronous tools from blocking the event loop.
+            result = await asyncio.to_thread(self.func, **parsed_kwargs)
         if asyncio.iscoroutine(result):
             return await result
-        else:
-            # We should allow calling a sync tool in the async path.
-            return result
+        return result
 
     @classmethod
     def from_mcp_tool(cls, session: _MCPToolClient, tool: "mcp.types.Tool") -> "Tool":

@@ -1,4 +1,6 @@
 import asyncio
+import threading
+import time
 from typing import Any
 
 import pytest
@@ -394,6 +396,31 @@ async def test_async_concurrent_calls():
     # Check that it ran concurrently (should take ~0.1s, not ~0.5s)
     # We use 0.3s as threshold to account for some overhead
     assert end_time - start_time < 0.3
+
+
+@pytest.mark.asyncio
+async def test_sync_tool_acall_does_not_block_event_loop():
+    started = threading.Event()
+    heartbeat_at = None
+    finished_at = None
+
+    def blocking_tool() -> str:
+        started.set()
+        time.sleep(0.1)
+        nonlocal finished_at
+        finished_at = time.monotonic()
+        return "done"
+
+    async def beat() -> None:
+        await asyncio.to_thread(started.wait)
+        await asyncio.sleep(0.01)
+        nonlocal heartbeat_at
+        heartbeat_at = time.monotonic()
+
+    result, _ = await asyncio.gather(Tool(blocking_tool).acall(), beat())
+
+    assert result == "done"
+    assert heartbeat_at < finished_at
 
 
 @pytest.mark.filterwarnings("ignore::RuntimeWarning")
